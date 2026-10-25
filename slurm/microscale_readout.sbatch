@@ -15,10 +15,13 @@
 #       slurm/microscale_readout.sbatch
 #
 # Needs numpy, pandas, scipy, pyarrow (requirements.txt). Add `module load ...` / venv activation below if needed.
+# Submit from the repository root, or add REPO_DIR=/path/to/this/repo to --export (Slurm runs a spooled copy of this
+# script, so its own location cannot be used to find the repo). For all three scales at once use slurm/run_pipeline.sh.
 set -euo pipefail
 : "${RUNS:?set RUNS to a space-separated list of run directory names}"
 : "${RUNS_DIR:?set RUNS_DIR}"; : "${OUT_DIR:?set OUT_DIR}"; PYTHON=${PYTHON:-python3}
-HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+HERE=${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
+[ -f "$HERE/microscale/microscale_readout.py" ] || { echo "cannot find the repo at $HERE: set REPO_DIR" >&2; exit 1; }
 read -ra R <<< "$RUNS"; RUN=${R[${SLURM_ARRAY_TASK_ID:-0}]}
 mkdir -p "$OUT_DIR"
 $PYTHON "$HERE/microscale/microscale_readout.py" run "$RUNS_DIR/$RUN/output" "$OUT_DIR/$RUN" ${EXTRA_ARGS:-}
