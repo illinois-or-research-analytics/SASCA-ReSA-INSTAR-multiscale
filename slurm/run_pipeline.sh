@@ -41,5 +41,5 @@ for run in "$@"; do
   [ -f "$RUNS_DIR/$run/output/edgelist.csv" ] && [ -f "$RUNS_DIR/$run/output/nodelist.csv" ] || { echo "missing $RUNS_DIR/$run/output/{nodelist,edgelist}.csv" >&2; exit 1; }
   mkdir -p "$OUT_DIR/$run/logs"; ids=""
   for stage in $STAGES; do id=$(submit "$stage" "$run"); ids="$ids:$id"; echo "$run  $stage -> job $id"; done
-  mid=$(submit merge "$run" "afterany$ids"); echo "$run  merge -> job $mid (after$ids)"
+  mid=$(submit merge "$run" "afterany$ids"); echo "$run  merge -> job $mid (afterany$ids)"
 done
