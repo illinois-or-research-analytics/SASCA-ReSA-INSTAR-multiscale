@@ -11,8 +11,8 @@ not noise to explain away.
 | scale | what is measured | status |
 |---|---|---|
 | **microscale** (a paper) | size, size at age, survival, lifespan, diet, productivity; attachment kernel and tail exponent; luck vs phenotype | done: `microscale/` |
-| mesoscale (communities of papers) | planned | |
-| macroscale (the whole network) | planned | |
+| **mesoscale** (clusters of papers) | IKC dense-core clusters (coverage, depth, modularity, hubs inside); Leiden CPM clusters with conductance | done: `mesoscale/` |
+| **macroscale** (the whole network) | concentration of citations (top-10 and top-1% shares, Gini) and triangle counts (transitivity, local clustering) | done: `macroscale/` |
 
 ## Quick start
 ```bash
@@ -31,6 +31,22 @@ On a Slurm cluster: `slurm/microscale_readout.sbatch` (one array task per run; u
 
 The script reads `config.ini` next to `RUN_OUTPUT_DIR` (override with `--config`) to find the seed network and
 `same_year_citations`; without it, the seed and same-year checks are skipped.
+
+## All three scales on a Slurm cluster
+```bash
+cp slurm/pipeline.env.example my.env          # set RUNS_DIR, OUT_DIR, PYTHON, IKC_PY, MODULES, SBATCH_EXTRA
+slurm/run_pipeline.sh -e my.env RUN1 RUN2     # RUN = a folder under RUNS_DIR with output/{nodelist,edgelist}.csv
+python multiscale.py compare baseline=OUT_DIR/RUN1,OUT_DIR/RUN2 treatment=OUT_DIR/RUN3   # when the jobs have finished
+```
+For each run the driver submits the stages `micro`, `ikc`, `leiden` and `macro` in parallel and a `merge` job that waits for them
+(it runs even if a stage failed, so a late or failed Leiden job does not block the rest). Results go to `OUT_DIR/RUN/{micro,meso,macro}/`
+and are merged into `OUT_DIR/RUN/summary_all.csv` (every measure as `<scale>.<measure>`; `stages.txt` says which outputs were found).
+Typical cost for a 1.2M-paper, 22M-citation run: micro about 2 minutes, IKC about 3, triangles about 15 seconds, and Leiden 15-25
+minutes, so the whole readout takes about half an hour. The meso stage needs `igraph`, `leidenalg` and `networkit`; the macro stage
+needs the triangle program (`make -C macroscale`, built automatically by the driver if missing). The IKC program is not in this
+repository: set `IKC_PY` to `Illinois/clustering/eleanor/code/IKC.py` from `chackoge/ERNIE_Plus` (commit `d3325da946`).
+Individual stages can be run directly: `mesoscale/mesoscale_readout.py ikc|leiden`, `macroscale/macroscale_readout.py run`.
+`python tests/smoke_test_pipeline.py` tests everything except IKC (and the triangle program, unless built) on a toy network.
 
 ## What `run` writes
 | file | contents |
@@ -73,6 +89,21 @@ simulator builds its node set from the edgelist).
     more citations. 0.5 is a coin flip; a permuted-trait control (`pair_prob_permuted_control`) should give 0.5.
   - `variation_unexplained_by_traits`: 1 minus R^2 of a regression of within-year citation rank on the three traits' ranks. An upper bound
     on luck, since it only captures monotone, additive effects. Agents aged 5 or more.
+
+**Mesoscale.** *IKC* (iterative k-core clustering) extracts dense cores recursively from the densest down; a core is kept only if it
+passes a positive-modularity test and every paper in it has at least `k` connections inside it, and extracted papers leave the graph,
+so its clusters are not plain k-cores. Reported at `k`=20: number of clusters, share of papers in them, depth, modularity of the largest
+cluster, the share of all citations it receives, and how many of the 100 / 1,000 most-cited papers it contains. *Leiden CPM* at one
+resolution: number of clusters, size distribution, and **conductance** (the share of a cluster's connections that lead outside it; lower
+means better separated), reported as the median and as the share of clusters below 0.5, by cluster count and weighted by papers.
+Conductance has a floor set by cluster size (a perfect 8-paper clique in a graph of mean degree 37 cannot go below about 0.8), so read it
+together with the share of papers in the clusters it describes (`leiden_ge10_paper_share`).
+
+**Macroscale.** *Concentration*: share of all citations received by the 10 most-cited papers and by the most-cited 1% of cited papers, and
+the Gini coefficient of in-degree (0 = equal, 1 = one paper has all). *Triangles*: undirected closed triples (directions ignored,
+duplicate edges merged), per paper, plus transitivity, mean local clustering and directed out-/in-closure. Transitivity is dominated by
+open triples around hubs, so triangles per paper and mean local clustering are the steadier comparisons. The triangle program was
+validated against an independent sparse-matrix count on a real 50k-paper slice.
 
 ## Example
 [docs/example_results.md](docs/example_results.md): a 30-year baseline against four treatments, replicate ranges.
