@@ -37,13 +37,15 @@ def main():
                 *(["--triangles-bin", tri] if use_tri else ["--skip-triangles"]))
             run(os.path.join(ROOT, "multiscale.py"), "merge", out)
         S = pd.read_csv(os.path.join(outs[0], "summary_all.csv")).set_index("measure").value
-        need = ["micro.indeg_all_median", "macro.top10_share", "macro.gini_indegree"]
+        need = ["micro.indeg_all_median", "micro.tail1pct_median", "micro.tail01pct_max", "macro.top10_share", "macro.gini_indegree"]
         if have("igraph") and have("leidenalg"): need += ["meso.leiden_clusters", "meso.leiden_ge10_median_conductance"]
         if os.path.exists(tri): need += ["macro.triangles", "macro.global_transitivity"]
         for m in need: assert m in S.index, f"missing {m}"
         assert 0 <= S["macro.gini_indegree"] <= 1 and 0 < S["macro.top10_share"] <= 1
         table = run(os.path.join(ROOT, "multiscale.py"), "compare", "toy=" + ",".join(outs))
         assert "| micro.indeg_all_median |" in table and "| macro.top10_share |" in table
+        rep = run(os.path.join(ROOT, "multiscale.py"), "report", "a=" + ",".join(outs), "b=" + ",".join(outs))   # two runs with replicates: the Differs column appears
+        assert rep.startswith("# Multiscale readout") and "| ★ |" in rep and "| ✔ |" in rep and "Differs" in rep
         print(f"merged {len(S)} measures; stages: igraph/leidenalg={'yes' if have('igraph') and have('leidenalg') else 'skipped'}, "
               f"triangles={'yes' if os.path.exists(tri) else 'skipped (not built)'}; IKC not tested here")
         print("pipeline smoke test passed")

@@ -166,6 +166,12 @@ def indegree_summary(v, el):
     cited = np.sort(d[d > 0])[::-1]
     S["top10_share"] = float(cited[:10].sum() / cited.sum())
     S["top1pct_of_cited_share"] = float(cited[:len(cited) // 100].sum() / cited.sum())
+    # the single maximum is one paper and very noisy, so also summarize the top 1% and top 0.1% of all papers by in-degree
+    ranked = np.sort(d)[::-1]
+    for tag, frac in (("1pct", 0.01), ("01pct", 0.001)):
+        top = ranked[:max(1, int(np.ceil(frac * len(ranked))))]
+        mn, md, p90, p99, mx = nearest_rank(top, [0, 50, 90, 99, 100])
+        S.update({f"tail{tag}_n": len(top), f"tail{tag}_min": mn, f"tail{tag}_median": md, f"tail{tag}_q90": p90, f"tail{tag}_q99": p99, f"tail{tag}_max": mx})
     return S
 
 
