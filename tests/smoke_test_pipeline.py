@@ -44,6 +44,8 @@ def main():
         assert 0 <= S["macro.gini_indegree"] <= 1 and 0 < S["macro.top10_share"] <= 1
         table = run(os.path.join(ROOT, "multiscale.py"), "compare", "toy=" + ",".join(outs))
         assert "| micro.indeg_all_median |" in table and "| macro.top10_share |" in table
+        rep = run(os.path.join(ROOT, "multiscale.py"), "report", "a=" + ",".join(outs), "b=" + ",".join(outs))   # two runs with replicates: the Differs column appears
+        assert rep.startswith("# Multiscale readout") and "| ★ |" in rep and "| ✔ |" in rep and "Differs" in rep
         print(f"merged {len(S)} measures; stages: igraph/leidenalg={'yes' if have('igraph') and have('leidenalg') else 'skipped'}, "
               f"triangles={'yes' if os.path.exists(tri) else 'skipped (not built)'}; IKC not tested here")
         print("pipeline smoke test passed")
